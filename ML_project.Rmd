@@ -1,0 +1,73 @@
+---
+title: "Practical Machine Learning: Predicting How Well Exercises are Performed"
+author: "CJ Jewell"
+output: 
+  html_document:
+  theme: journal
+---
+
+# Goal
+Mobile health devices such as Jawbone Up, Nike FuelBand and Fitbit are able to quantify how much of a particular activity is performed. However, these devices rarely quantify how well these activities are performed. In this project, I used a dataset in which six male participants between the ages of 20 and 28 were asked to perform dumbbell lifts correctly and incorrectly in five different ways. The goal of this project was to predict the manner in which the exercise was done. This work has many potential applications including having a digital assistant for weight lifting exercises.
+
+
+# Data Availability
+More information about the premise of this study and how these data were collected can be found here: http://groupware.les.inf.puc-rio.br/har
+
+The training data I used for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data I used for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Load Data and Relevant Packages
+```{r, message=FALSE}
+library(caret)
+library(randomForest)
+
+training = read.csv("pml-training.csv", header = TRUE, na.strings = c("", "NA", "#DIV/0!"))
+testing = read.csv("pml-testing.csv", header = TRUE, na.strings = c("", "NA", "#DIV/0!"))
+```
+
+## Data Cleaning
+```{r}
+str(training)
+```
+By taking a look at the data, I noticed that many of the factors have lots of NA values, and others include information not related to the physical weight lifting (e.g. user name, timestamp information). I removed columns with more than half of the values being NA, and the first seven columns that included non-relevant information so they did not interfere or affect the predicting algorithm.
+```{r, cache=TRUE}
+training_clean = training[,colSums(is.na(training)) < nrow(training)/2]
+training_clean = training_clean[,8:60]
+#str(training_clean)
+dim(training_clean)
+```
+
+I did the same transformations and data cleaning for the testing set. The cleaned training and testing data sets still include the same number of variables, when one does not count the final 'classe' variable that was being predicted.
+```{r, cache=TRUE}
+testing_clean = testing[,colSums(is.na(testing)) < nrow(testing)/2]
+testing_clean = testing_clean[,8:59]
+#str(testing_clean)
+dim(training_clean)
+```
+
+## Cross-Validation
+I subsetted the cleaned training set into myTraining and cross-validation sets to test the model on. I used 75% of the data as the training set and the remaining 25% to test the model.
+```{r, cache=TRUE}
+set.seed(213964)
+inTrain = createDataPartition(y = training_clean$classe, p = 3/4, list = FALSE)
+myTraining = training_clean[inTrain,]
+myCrossValidation = training_clean[-inTrain,]
+```
+
+## Model Fitting
+I used the random forest algorithm to predict the different classes of weight lifting, the 'classe' variable.
+```{r, cache = TRUE}
+mod1_rf = train(classe ~ ., method = "rf", data = myTraining)
+plot(mod1_rf$finalModel)
+pred1_rf = predict(mod1_rf, myCrossValidation)
+confusionMatrix(myCrossValidation$classe, pred1_rf)
+```
+This model is a very good predictor, with an out of sample prediction accuracy of 99.16%. The out of sample error is 0.84%.
+
+## Final Prediction of Test Set
+With the selected model, I assessed the model prediction accuracy of the test set.
+```{r}
+pred_test = predict(mod1_rf, testing_clean)
+pred_test
+```
